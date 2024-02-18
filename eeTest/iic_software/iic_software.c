@@ -1,12 +1,12 @@
 #include	"iic_software.h"
 #include	"timeout_delay.h" 
-
+#include	"stm32f10x_rcc.h"
 // Public-------------------------------------------------------------CIic_Software
 CIic_Software::CIic_Software(void)
 {
 	read_data = 0;
-	uint8_t ack = 0;
-	uint8_t nack = 1;
+	ack = 0;
+	nack = 1;
 }
 
 CIic_Software::CIic_Software(GPIO_TypeDef 		*pPortScl,		uint16_t pinScl,
@@ -15,6 +15,36 @@ CIic_Software::CIic_Software(GPIO_TypeDef 		*pPortScl,		uint16_t pinScl,
 														 GPIO_InitTypeDef *pSdaInitDef,
 														 uint8_t					id)
 {
+	CIic_Port_Init(pPortScl,		pinScl,
+								 pPortSda,		pinSda,
+								 pSclInitDef,
+								 pSdaInitDef,
+								 id);
+}
+
+void CIic_Software::CIic_Port_Init(GPIO_TypeDef 		*pPortScl,		uint16_t pinScl,
+														 GPIO_TypeDef 		*pPortSda,		uint16_t pinSda,
+														 GPIO_InitTypeDef *pSclInitDef,
+														 GPIO_InitTypeDef *pSdaInitDef,
+														 uint8_t					id)
+{
+	if(pPortScl == GPIOA || pPortSda == GPIOA)
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+	else if(pPortScl == GPIOB || pPortSda == GPIOB)
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+	else if(pPortScl == GPIOC || pPortSda == GPIOC)
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+	else if(pPortScl == GPIOD || pPortSda == GPIOD)
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
+	else if(pPortScl == GPIOE || pPortSda == GPIOE)
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOE, ENABLE);
+	else if(pPortScl == GPIOF || pPortSda == GPIOF)
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOF, ENABLE);
+	else if(pPortScl == GPIOG || pPortSda == GPIOG)
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOG, ENABLE);
+	else
+		;
+
 	// 赋值引脚端口和引脚号
 	pGpioPortSCL = pPortScl;
 	GpioPinSCL = pinScl;
@@ -25,33 +55,34 @@ CIic_Software::CIic_Software(GPIO_TypeDef 		*pPortScl,		uint16_t pinScl,
 	mpSdaStruct = pSdaInitDef;
 	err = 0; 
 	read_data = 0;
-	uint8_t ack = 0;
-	uint8_t nack = 1;
+	ack = 0;
+	nack = 1;
 
 	iicIoInitial();
-	SCL_HIGH;
-	SDA_HIGH;
+	sclSetValue(Bit_SET);
+	sdaSetValue(Bit_SET);
 }
+
 // Protected---------------------------------------------------------
 void CIic_Software::start(void)
 {
-	DELAY;
-	SDA_HIGH;
-	SCL_HIGH;
-	SHORT_DELAY;
-	SDA_LOW;
-	SHORT_DELAY;
-	SCL_LOW;
+	IIC_DELAY;
+	sdaSetValue(Bit_SET);
+	sclSetValue(Bit_SET);
+	IIC_SHORT_DELAY;
+	sdaSetValue(Bit_RESET);
+	IIC_SHORT_DELAY;
+	sclSetValue(Bit_RESET);
 }
 
 void CIic_Software::stop(void)
 {
-	SCL_LOW;
-	SDA_LOW;
-	SHORT_DELAY;
-	SCL_HIGH;
-	SHORT_DELAY;
-	SDA_HIGH;
+	sclSetValue(Bit_RESET);
+	sdaSetValue(Bit_RESET);
+	IIC_SHORT_DELAY;
+	sclSetValue(Bit_SET);
+	IIC_SHORT_DELAY;
+	sdaSetValue(Bit_SET);
 }
 
 /* 发送任意位数数据 */
@@ -60,13 +91,13 @@ void CIic_Software::bitsSet(dataType data, uint8_t length)
 	uint8_t mark = 1<<(length-1);
 	while(mark)
 	{	
-		if(data & mark) SDA_HIGH;
-		else SDA_LOW;
-		DELAY;
-		SCL_HIGH;
-		DELAY;
+		if(data & mark) sdaSetValue(Bit_SET);
+		else sdaSetValue(Bit_RESET);
+		IIC_DELAY;
+		sclSetValue(Bit_SET);
+		IIC_DELAY;
 		mark >>= 1;
-		SCL_LOW;
+		sclSetValue(Bit_RESET);
 	}
 }
 
@@ -77,14 +108,14 @@ void CIic_Software::byteSet(dataType data)
 	uint8_t mark = 1<<(8-1);
 	while(mark)
 	{	
-		(data & mark) ? SDA_HIGH : SDA_LOW;
-		DELAY;
-		SCL_HIGH;
-		SHORT_DELAY;
+		(data & mark) ? sdaSetValue(Bit_SET) : sdaSetValue(Bit_RESET);
+		IIC_DELAY;
+		sclSetValue(Bit_SET);
+		IIC_SHORT_DELAY;
 		mark >>= 1;
-		SCL_LOW;
+		sclSetValue(Bit_RESET);
 	}
-	SDA_HIGH;
+	sdaSetValue(Bit_SET);
 }
 
 /* 获取字节
@@ -93,17 +124,18 @@ dataType CIic_Software::byteGet(void)
 {
 	uint8_t mark = 1<<(8-1);
 	uint8_t read_bits = 0;
-	SDA_IN;
+	
+	sdaSetInput();
 	while(mark)
 	{	
-		DELAY;
-		SCL_HIGH;
-		SHORT_DELAY;
-		if(SDA) read_bits |= mark;
-		SCL_LOW;
+		IIC_DELAY;
+		sclSetValue(Bit_SET);
+		IIC_SHORT_DELAY;
+		if(sdaGetValue()) read_bits |= mark;
+		sclSetValue(Bit_RESET);
 		mark >>= 1;
 	}
-	SDA_OUT;
+	sdaSetOutput();
 	return read_bits;
 }
 
@@ -114,12 +146,12 @@ dataType CIic_Software::byteGet(void)
 uint8_t CIic_Software::ackGet(void)
 {
 	uint8_t read_ack = 1;
-	SDA_IN;
-	SCL_HIGH;
-	SHORT_DELAY;
-	read_ack = SDA;
-	SCL_LOW;
-	SDA_OUT;
+	sdaSetInput();
+	sclSetValue(Bit_SET);
+	IIC_SHORT_DELAY;
+	read_ack = sdaGetValue();
+	sclSetValue(Bit_RESET);
+	sdaSetOutput();
 	return read_ack;
 }
 
@@ -128,11 +160,11 @@ uint8_t CIic_Software::ackGet(void)
    NACK */
 void CIic_Software::ackSet(uint8_t ack)
 {
-	(ack == 1) ? SDA_HIGH : SDA_LOW;
-	SHORT_DELAY;
-	SCL_HIGH;
-	DELAY;
-	SCL_LOW;
-	DELAY;
-	SDA_HIGH;
+	(ack == 1) ? sdaSetValue(Bit_SET) : sdaSetValue(Bit_RESET);
+	IIC_SHORT_DELAY;
+	sclSetValue(Bit_SET);
+	IIC_DELAY;
+	sclSetValue(Bit_RESET);
+	IIC_DELAY;
+	sdaSetValue(Bit_SET);
 }

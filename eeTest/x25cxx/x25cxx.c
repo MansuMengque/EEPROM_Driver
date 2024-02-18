@@ -12,6 +12,35 @@
 	GND	|4	5|	SI
 */
 
+CX25cxx_Base::CX25cxx_Base(GPIO_TypeDef 		*pPortScl,	uint16_t pinScl,
+													 GPIO_TypeDef 		*pPortCs,		uint16_t pinCs,
+													 GPIO_TypeDef			*pPortMosi,	uint16_t pinMosi,
+													 GPIO_TypeDef			*pPortMiso,	uint16_t pinMiso,
+													 GPIO_TypeDef			*pPortWp,		uint16_t pinWp,
+													 GPIO_TypeDef			*pPortHold,	uint16_t pinHold,
+													 GPIO_InitTypeDef	*pIoInitDef,
+													 uint8_t 					id)
+{
+	Spi.spiIoInitial(pPortScl,	pinScl,
+									 pPortCs,		pinCs,
+									 pPortMosi,	pinMosi,
+									 pPortMiso,	pinMiso);
+	
+		mpIoStruct->GPIO_Pin = GpioPinWP;
+		mpIoStruct->GPIO_Mode = GPIO_Mode_Out_PP;
+		mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
+		GPIO_Init(pGpioPortWP, mpIoStruct);
+		
+		mpIoStruct->GPIO_Pin = GpioPinHOLD;
+		mpIoStruct->GPIO_Mode = GPIO_Mode_Out_PP;
+		mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
+		GPIO_Init(pGpioPortHOLD, mpIoStruct);
+		
+		wpSetValue(Bit_SET);
+		holdSetValue(Bit_RESET);
+		eeInitial();
+}												 
+
 addressType CX25cxx_Base::pageStartAddr(uint8_t page)
 {
 	addressType addr = 0;
@@ -46,7 +75,7 @@ void CX25cxx_Base::eeInitial(void)
    0表示完成，1表示等待超时 */
 uint8_t CX25cxx_Base::timeOutWait(void)
 {
-	err = 0;
+	Msg.err = 0;
 	uint16_t counter = 0;
 	status_byte.reg = cmdRDSR();
 	while(status_byte.n_rdy == stu_reg_rdy_bsy)
@@ -56,70 +85,70 @@ uint8_t CX25cxx_Base::timeOutWait(void)
 		counter++;
 		if(counter >= 60)
 		{
-			err = 1;
+			Msg.err = 1;
 			break;
 		}
 		else
 			;
 	}
-	return err;
+	return Msg.err;
 }
 
 /* 规格书标准写使能数据时序 */
 void CX25cxx_Base::cmdWREN(void)
 {
-	START;
+	start();
 	opSendWren();
-	STOP;
+	stop();
 }
 
 /* 规格书标准写保护数据时序 */
 void CX25cxx_Base::cmdWRDI(void)
 {
-	START;
+	start();
 	opSendWrdi();
-	STOP;
+	stop();
 }
 
 /* 规格书标准读状态寄存器时序 */
 dataType CX25cxx_Base::cmdRDSR(void)
 {
-	START;
+	start();
 	opSendRdsr();
-	read_data = dataRead();
-	STOP;
-	return read_data;
+	Msg.readData = dataRead();
+	stop();
+	return Msg.readData;
 }
 
 /* 规格书标准写状态寄存器时序 */
 dataType CX25cxx_Base::cmdWRSR(dataType statu_reg)
 {
-	START;
+	start();
 	opSendWrsr();
 	dataSend(statu_reg);
-	STOP;
+	stop();
 	return timeOutWait();
 }
 
 /* 规格书标准读数据时序 */
 dataType CX25cxx_Base::cmdREAD(addressType addr)
 {//发指令，发地址，读数据
-	START;
+	start();
 	opSendRead();
 	addrSend(addr);
-	read_data =  dataRead();
-	STOP;
-	return read_data;
+	Msg.readData =  dataRead();
+	stop();
+	return Msg.readData;
 }
 
 /* 规格书标准写数据时序 */
 void CX25cxx_Base::cmdWRITE(addressType my_addr, dataType my_data)
 {
-	START;
+	start();
 	opSendWrite();
 	addrSend(my_addr);
 	dataSend(my_data);
-	STOP;
+	stop();
 }
 
 /* 写数据
@@ -132,13 +161,13 @@ uint8_t CX25cxx_Base::writeData(addressType my_addr, dataType my_data)
 
 dataType CX25cxx_Base::writePage(addressType addr, dataType my_data)
 {
-	START;
+	start();
 	opSendWrite();
 	addrSend(addr);
 	for(uint8_t j = 0; j < bytes_in_page; j++)
 	{
 		dataSend(my_data);
 	}
-	STOP;
+	stop();
 	return timeOutWait();
 }

@@ -5,14 +5,7 @@
 #include	"stdint.h"
 #include	"timeout_delay.h"
 #include	"spi_software.h"
-
-/* CIic_Software -> CX93cxx_Base -> |-> CX93C46
-																		|-> CX93C56
-																		|-> CX93C57
-																		|-> CX93C66
-																		|-> CX93C76
-																		|-> CX93C86
-*/
+#include	"spi_eeprom_base.h"
 
 /*
 			X93CX6
@@ -23,11 +16,11 @@
 */
 
 // 是否在CS下降并上升后DO输出busy信号
-#define		WAIT_AFTER_CS_FALL			0
-#define		ORG_HIGH			orgSetValue(Bit_SET)
-#define		ORG_LOW				orgSetValue(Bit_RESET)
+#define		WAIT_AFTER_CS_FALL	0
+#define		ORG_HIGH						orgSetValue(Bit_SET)
+#define		ORG_LOW							orgSetValue(Bit_RESET)
 
-class CX93cxx_Base : public CSpi_Software
+class CX93cxx_Base : public CSpi_Eeprom_Base
 {
 	public:
 		CX93cxx_Base(void)
@@ -58,14 +51,14 @@ class CX93cxx_Base : public CSpi_Software
 								 GPIO_TypeDef			*pPortMiso,	uint16_t pinMiso,
 								 GPIO_TypeDef			*pPortORG,	uint16_t pinOrg,
 								 GPIO_InitTypeDef	*pIoInitDef)
-		: CSpi_Software(pPortScl,	pinScl,
-										pPortCs,		 pinCs,
-										pPortMosi,	 pinMosi,
-										pPortMiso,	 pinMiso)
 		{
+			Spi.spiIoInitial(pPortScl,	pinScl,
+											 pPortCs,		pinCs,
+											 pPortMosi,	pinMosi,
+											 pPortMiso,	pinMiso);
+			
 			pGpioPortORG = pPortORG;
 			GpioPinORG = pinOrg;
-			spiIoInitial();
 			mpIoStruct->GPIO_Pin = GpioPinORG;
 			mpIoStruct->GPIO_Mode = GPIO_Mode_Out_PP;
 			mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
@@ -114,6 +107,9 @@ class CX93cxx_Base : public CSpi_Software
 			/// @brief ORG端口定义，PORT + PIN
 			GPIO_TypeDef *pGpioPortORG;
 			uint16_t     GpioPinORG;
+	
+			// 初始化方向的结构
+			GPIO_InitTypeDef* mpIoStruct;
 
 	protected:
 		uint8_t op_current;
@@ -143,7 +139,7 @@ class CX93cxx_Base : public CSpi_Software
 		uint8_t words_length_x8;
 		uint8_t words_length_x16;
 
-	protected:
+	public:
 		void wordsLengthSet(uint8_t mode)
 		{
 			if(mode == x8)
@@ -167,31 +163,31 @@ class CX93cxx_Base : public CSpi_Software
 			GPIO_WriteBit(pGpioPortORG,GpioPinORG,value);
 		}
 
-			void opSend(uint8_t op)
+		void opSend(uint8_t op)
 		{
 			op_current = op;
-			dataTransform(op, 2);
+			Spi.dataTransform(op, 2);
 		}
 
 		void addressSend(addressType addr)
 		{
-			dataTransform(addr, address_length_current);
+			Spi.dataTransform(addr, address_length_current);
 		}
 
 		void addressSend(uint8_t op_addr)
 		{
-			dataTransform(op_addr, 2);
-			dataTransform(0x0000, address_length_current - 2);
+			Spi.dataTransform(op_addr, 2);
+			Spi.dataTransform(0x0000, address_length_current - 2);
 		}
 
 		void dataSend(dataType data)
 		{
-			dataTransform(data, words_length_current);
+			Spi.dataTransform(data, words_length_current);
 		}
 
 		dataType dataGet(void)
 		{
-			return dataTransform(0x0000, words_length_current);
+			return Spi.dataTransform(0x0000, words_length_current);
 		}
 };
 

@@ -4,7 +4,7 @@
 #include	"stm32f10x_gpio.h"
 #include	"sys.h"
 #include	"timeout_delay.h"
-#include	"spi_software.h"
+#include	"spi_eeprom_base.h"
 
 /*		X25CXX
 	#CS	|1	8|	VCC
@@ -38,33 +38,28 @@ typedef union
  extern "C" {
 #endif
 	 
-class CX25cxx_Base : public CSpi_Software
+class CX25cxx_Base : public CSpi_Eeprom_Base
 {
 	public:
+		CX25cxx_Base(GPIO_TypeDef 		*pPortScl,	uint16_t pinScl,
+								 GPIO_TypeDef 		*pPortCs,		uint16_t pinCs,
+								 GPIO_TypeDef			*pPortMosi,	uint16_t pinMosi,
+								 GPIO_TypeDef			*pPortMiso,	uint16_t pinMiso,
+								 GPIO_TypeDef			*pPortWp,		uint16_t pinWp,
+								 GPIO_TypeDef			*pPortHold,	uint16_t pinHold,
+								 GPIO_InitTypeDef	*pIoInitDef,
+								 uint8_t 					id);
+	
+	protected:
 		/// @brief WP端口定义，PORT + PIN
 		GPIO_TypeDef *pGpioPortWP;
 		uint16_t     GpioPinWP;
 		/// @brief HOLD端口定义，PORT + PIN
 		GPIO_TypeDef *pGpioPortHOLD;
 		uint16_t     GpioPinHOLD;
+		// 初始化方向的结构
+		GPIO_InitTypeDef* mpIoStruct;
 	
-	public:
-		void eeIoInitial(void)
-		{
-			spiIoInitial();
-			mpIoStruct->GPIO_Pin = GpioPinWP;
-			mpIoStruct->GPIO_Mode = GPIO_Mode_Out_PP;
-			mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
-			GPIO_Init(pGpioPortWP, mpIoStruct);
-			
-			mpIoStruct->GPIO_Pin = GpioPinHOLD;
-			mpIoStruct->GPIO_Mode = GPIO_Mode_Out_PP;
-			mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
-			GPIO_Init(pGpioPortHOLD, mpIoStruct);
-			
-			WP_HIGH;
-			HOLD_HIGH;
-		}
 	protected:
 		void eeInitial(void);
 		// Instruction Format
@@ -99,6 +94,16 @@ class CX25cxx_Base : public CSpi_Software
 		uint8_t address_length;
 
 	protected:
+		void start(void)
+		{
+			Spi.csSetValue(Bit_RESET);
+		}
+		
+		void stop(void)
+		{
+			Spi.csSetValue(Bit_SET);
+		}
+		
 		void wpSetValue(BitAction value)
 		{
 			GPIO_WriteBit(pGpioPortWP,GpioPinWP,value);
@@ -110,43 +115,43 @@ class CX25cxx_Base : public CSpi_Software
 		
 		void dataSend(dataType data)
 		{
-			dataTransform(data, 8);
+			Spi.dataTransform(data, 8);
 		}
 		
 		void addrSend(addressType addr)
 		{
-			dataTransform(addr, addr_length);
+			Spi.dataTransform(addr, addr_length);
 		}
 		
 		dataType dataRead(void)
 		{
-			read_data = dataTransform(0x00, 8);
-			return read_data;
+			Msg.readData = Spi.dataTransform(0x00, 8);
+			return Msg.readData;
 		}
 		
 		void opSendWren(void)
 		{
-			dataTransform(op_wren, op_length);
+			Spi.dataTransform(op_wren, op_length);
 		}
 		void opSendWrdi(void)
 		{
-			dataTransform(op_wrdi, op_length);
+			Spi.dataTransform(op_wrdi, op_length);
 		}
 		void opSendRdsr(void)
 		{
-			dataTransform(op_rdsr, op_length);
+			Spi.dataTransform(op_rdsr, op_length);
 		}
 		void opSendWrsr(void)
 		{
-			dataTransform(op_wrsr, op_length);
+			Spi.dataTransform(op_wrsr, op_length);
 		}
 		void opSendRead(void)
 		{
-			dataTransform(op_read, op_length);
+			Spi.dataTransform(op_read, op_length);
 		}
 		void opSendWrite(void)
 		{
-			dataTransform(op_write, op_length);
+			Spi.dataTransform(op_write, op_length);
 		}
 		
 	public:
@@ -165,30 +170,24 @@ class CX25cxx_Base : public CSpi_Software
 class CX25C256 : public CX25cxx_Base
 {
 	public:
-		CX25C256(GPIO_TypeDef 			*pPortScl,	uint16_t pinScl,
-							GPIO_TypeDef 			*pPortCs,		uint16_t pinCs,
-							GPIO_TypeDef			*pPortMosi,	uint16_t pinMosi,
-							GPIO_TypeDef			*pPortMiso,	uint16_t pinMiso,
-							GPIO_TypeDef			*pPortWp,		uint16_t pinWp,
-							GPIO_TypeDef			*pPortHold,	uint16_t pinHold,
-							GPIO_InitTypeDef	*pIoInitDef,
-							uint8_t 					id)
+		CX25C256(GPIO_TypeDef 		*pPortScl,	uint16_t pinScl,
+						 GPIO_TypeDef 		*pPortCs,		uint16_t pinCs,
+						 GPIO_TypeDef			*pPortMosi,	uint16_t pinMosi,
+						 GPIO_TypeDef			*pPortMiso,	uint16_t pinMiso,
+						 GPIO_TypeDef			*pPortWp,		uint16_t pinWp,
+						 GPIO_TypeDef			*pPortHold,	uint16_t pinHold,
+						 GPIO_InitTypeDef	*pIoInitDef,
+						 uint8_t 					id)
+	:CX25cxx_Base(pPortScl,		pinScl,
+								pPortCs,		pinCs,
+								pPortMosi,	pinMosi,
+								pPortMiso,	pinMiso,
+								pPortWp,		pinWp,
+								pPortHold,	pinHold,
+								pIoInitDef,
+								id)
 		{
 			
-			// 赋值引脚端口和引脚号
-			pGpioPortSCL = pPortScl;
-			GpioPinSCL = pinScl;
-			pGpioPortCS = pPortCs;
-			GpioPinCS = pinCs;
-			pGpioPortMOSI = pPortMosi;
-			GpioPinMOSI = pinMosi;
-			pGpioPortMISO = pPortMiso;
-			GpioPinMISO = pinMiso;
-			pGpioPortWP = pPortWp;
-			GpioPinWP = pinWp;
-			pGpioPortHOLD = pPortHold;
-			GpioPinHOLD = pinHold;
-
 			/* Memory Orgnizaton */
 			addressType total_bytes = 32768;
 			addressType page_nums = 512;
@@ -208,22 +207,15 @@ class CX25C64 : public CX25cxx_Base
 						GPIO_TypeDef			*pPortHold,	uint16_t pinHold,
 						GPIO_InitTypeDef	*pIoInitDef,
 						uint8_t 					id)
+	:CX25cxx_Base(pPortScl,		pinScl,
+								pPortCs,		pinCs,
+								pPortMosi,	pinMosi,
+								pPortMiso,	pinMiso,
+								pPortWp,		pinWp,
+								pPortHold,	pinHold,
+								pIoInitDef,
+								id)
 		{
-			
-			// 赋值引脚端口和引脚号
-			pGpioPortSCL = pPortScl;
-			GpioPinSCL = pinScl;
-			pGpioPortCS = pPortCs;
-			GpioPinCS = pinCs;
-			pGpioPortMOSI = pPortMosi;
-			GpioPinMOSI = pinMosi;
-			pGpioPortMISO = pPortMiso;
-			GpioPinMISO = pinMiso;
-			pGpioPortWP = pPortWp;
-			GpioPinWP = pinWp;
-			pGpioPortHOLD = pPortHold;
-			GpioPinHOLD = pinHold;
-
 			/* Memory Orgnizaton */
 			addressType total_bytes = 8192;
 			addressType page_nums = 256;

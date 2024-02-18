@@ -1,6 +1,7 @@
 #include	"x34cxx.h"
-#include	"timeout_delay.h" 
+#include	"iic_software.h"
 #include	"stdint.h"
+#include	"timeout_delay.h" 
 
 /*
 			X34CXX
@@ -10,91 +11,37 @@
 	GND	|4	5|	SDA
 */
 
-//Protected----------------------------------------------------------
-void CFt34c04::paraInitial(void)
-{
-	err = 0;
-	read_data = 0;
-	test_err_sign = 0;
-	
-	// 基础配置
-	bytes_per_page = 16;
-	bytes_per_half_memory = 256;
-	page_in_memory = 32;
-	page_in_half_memory = 16;
-	
-	// 切页设置
-	page_set_first = 0x6c;
-	page_set_second = 0x6e;
-	page_get = 0x6d;
-	
-	// 功能设置
-	rd = 1;
-	wr = 0;
-	device_type_rw = 0x0A; // 1010
-	
-	// 读取
-	dataType page_get_first	= 0;
-	dataType page_get_second = 1;
-}
 
 //Public-------------------------------------------------------------
-CFt34c04::CFt34c04()
-{
-	;
-}
-
-CFt34c04::CFt34c04(GPIO_TypeDef 		*pPortScl,		uint16_t pinScl,
-								 GPIO_TypeDef 		*pPortSda,		uint16_t pinSda,
-								 GPIO_InitTypeDef *pSclInitDef,
-								 GPIO_InitTypeDef *pSdaInitDef,
-								 uint8_t					id)
-{
-	// 赋值引脚端口和引脚号
-	pGpioPortSCL = pPortScl;
-	GpioPinSCL = pinScl;
-	pGpioPortSDA = pPortSda;
-	GpioPinSDA = pinSda;
-	// 赋值寄存器结构体
-	mpSclStruct = pSclInitDef;
-	mpSdaStruct = pSdaInitDef;
-
-	device_id = id;
-	paraInitial();
-	SCL_HIGH;
-	SDA_HIGH;
-	SDA_OUT;
-	SCL_OUT;
-}
 
 /* 获取当前所在页
    输出宏：	PAGE_GET_FIRST
 			PAGE_GET_SECOND*/
-uint8_t CFt34c04::pageAddrGet(void)
+uint8_t CFt34cxx_Base::pageAddrGet(void)
 {
 	uint8_t current_page;
-	START;
-	byteSet(page_get);
-	current_page = ackGet();
-	byteSet(0x00);
-	ackGet(); // 不关心
-	byteSet(0x00);
-	ackGet(); // 不关心
+	Iic.start();
+	Iic.byteSet(page_get);
+	current_page = Iic.ackGet();
+	Iic.byteSet(0x00);
+	Iic.ackGet(); // 不关心
+	Iic.byteSet(0x00);
+	Iic.ackGet(); // 不关心
 	// 无 stop 指令
 	return current_page;
 }
 
 /* 根据输入地址自动判断应切换的页
    输入：地址*/
-addressType CFt34c04::pageAddrAutoSet(addressType addr)
+addressType CFt34cxx_Base::pageAddrAutoSet(addressType addr)
 {
-	err = 0;
+	Msg.err = 0;
 	if(addr < 0x100)
 	{
 		pageAddrSet(page_set_first);
 		if(pageAddrGet() == page_get_second)
 		{
-			err++;
+			Msg.err++;
 		}
 	}
 	else if(addr < 0x1ff)
@@ -102,7 +49,7 @@ addressType CFt34c04::pageAddrAutoSet(addressType addr)
 		pageAddrSet(page_set_second);
 		if(pageAddrGet() == page_get_first)
 		{
-			err++;
+			Msg.err++;
 		}
 		addr -= 0x100;
 	}
@@ -112,7 +59,7 @@ addressType CFt34c04::pageAddrAutoSet(addressType addr)
 }
 
 /* 页读时，将页的序号转换为地址号 */
-addressType CFt34c04::pageStartAddr(uint8_t page)
+addressType CFt34cxx_Base::pageStartAddr(uint8_t page)
 {
 	addressType addr = 0;
 	addr = page * bytes_per_page;
@@ -122,36 +69,36 @@ addressType CFt34c04::pageStartAddr(uint8_t page)
 /* 切换前后半部分
    输入宏：PAGE_SET_FIRST
 					PAGE_SET_SECOND*/
-uint8_t CFt34c04::pageAddrSet(dataType cmd)
+uint8_t CFt34cxx_Base::pageAddrSet(dataType cmd)
 {
-	err = 0;
+	Msg.err = 0;
 	switch(0)
 	{
 		case 0:
-			START;
-			byteSet(cmd);
-			if(ackGet() == nack)
+			Iic.start();
+			Iic.byteSet(cmd);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 1:
-			byteSet(0x00);
-			ackGet(); // 不关心
+			Iic.byteSet(0x00);
+			Iic.ackGet(); // 不关心
 		case 2:
-			byteSet(0x00);
-			ackGet(); // 不关心
+			Iic.byteSet(0x00);
+			Iic.ackGet(); // 不关心
 		default:
 			break;
 		// 无 stop 指令
 	}
-	return err;
+	return Msg.err;
 }
 
 /* 读当前地址 */
-dataType CFt34c04::readCurrentAddress(uint8_t device_addr)
+dataType CFt34cxx_Base::readCurrentAddress(uint8_t device_addr)
 {
-	err = 0;
+	Msg.err = 0;
 	device_address_byte.rw = wr;
 	device_address_byte.device_addr = device_addr;
 	device_address_byte.device_type = device_type_rw;
@@ -159,32 +106,32 @@ dataType CFt34c04::readCurrentAddress(uint8_t device_addr)
 	switch(0)
 	{
 		case 0:
-			START;
-			byteSet(device_address_byte.byte);
-			if(ackGet() == nack)
+			Iic.start();
+			Iic.byteSet(device_address_byte.byte);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 1:
-			read_data = byteGet();
-			if(ackGet() == nack)
+			Msg.readData = Iic.byteGet();
+			if(Iic.ackGet() == Iic.nack)
 			{
-				; //no ack
+				; //no Iic.ack
 			}
 		default:
 			break;
 	}
-	STOP;
-	return read_data;
+	Iic.stop();
+	return Msg.readData;
 }
 
 /* 随机读 
    输入：硬件地址，寄存地址，数据
    输出：数据*/
-dataType CFt34c04::readRandom(uint8_t device_addr, addressType addr)
+dataType CFt34cxx_Base::readRandom(uint8_t device_addr, addressType addr)
 {
-	err = 0;
+	Msg.err = 0;
 	device_address_byte.rw = wr;
 	device_address_byte.device_addr = device_addr;
 	device_address_byte.device_type = device_type_rw;
@@ -192,46 +139,46 @@ dataType CFt34c04::readRandom(uint8_t device_addr, addressType addr)
 	switch(0)
 	{
 		case 0:
-			START;
-			byteSet(device_address_byte.byte);
-			if(ackGet() == nack)
+			Iic.start();
+			Iic.byteSet(device_address_byte.byte);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 2:// 发低位
-			byteSet(addr);
-			if(ackGet() == nack)
+			Iic.byteSet(addr);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 3:
-			START;
+			Iic.start();
 			device_address_byte.rw = rd;
 
-			byteSet(device_address_byte.byte);
-			if(ackGet() == nack)
+			Iic.byteSet(device_address_byte.byte);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 5:
-			read_data = byteGet();
-			if(ackGet() == nack)
+			Msg.readData = Iic.byteGet();
+			if(Iic.ackGet() == Iic.nack)
 			{
-				//no ack
+				//no Iic.ack
 			}
 	}
-	STOP;
-    return read_data;
+	Iic.stop();
+    return Msg.readData;
 }
 
 /* 写指令
    输入：硬件地址，寄存地址，数据*/
-uint8_t CFt34c04::writeRandom(uint8_t device_addr, addressType addr, dataType data)
+uint8_t CFt34cxx_Base::writeRandom(uint8_t device_addr, addressType addr, dataType data)
 {
-	uint8_t err = 0;
+	Msg.err = 0;
 	device_address_byte.rw = wr;
 	device_address_byte.device_addr = device_addr;
 	device_address_byte.device_type = device_type_rw;
@@ -239,40 +186,40 @@ uint8_t CFt34c04::writeRandom(uint8_t device_addr, addressType addr, dataType da
 	switch(0)
 	{
 		case 0:
-			START;
-			byteSet(device_address_byte.byte);
-			if(ackGet() == nack)
+			Iic.start();
+			Iic.byteSet(device_address_byte.byte);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 1:// 发低位
-			byteSet(addr);
-			if(ackGet() == nack)
+			Iic.byteSet(addr);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 2:// 发数据
-			byteSet(data);
-			if(ackGet() == nack)
+			Iic.byteSet(data);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err ++;
+				Msg.err ++;
 				break;
 			}
 		default:
 			break;
 	}
-	STOP;
+	Iic.stop();
 	WAIT_DELAY;
-	return err;
+	return Msg.err;
 }
 
 /* 页写
    输入：硬件地址，页号，数据 */
-uint8_t CFt34c04::writePage(uint8_t device_addr, addressType page_addr, dataType data)
+uint8_t CFt34cxx_Base::writePage(uint8_t device_addr, addressType page_addr, dataType data)
 {
-	uint8_t err = 0;
+	Msg.err = 0;
 	addressType addr = pageStartAddr(page_addr);
 	device_address_byte.rw = wr;
 	device_address_byte.device_addr = device_addr;
@@ -281,45 +228,45 @@ uint8_t CFt34c04::writePage(uint8_t device_addr, addressType page_addr, dataType
 	switch(0)
 	{
 		case 0:
-			START;
-			byteSet(device_address_byte.byte);
-			if(ackGet() == nack)
+			Iic.start();
+			Iic.byteSet(device_address_byte.byte);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err ++;
+				Msg.err ++;
 				break;
 			}
 		case 1: // 发低位
-			byteSet(addr);
-			if(ackGet() == nack)
+			Iic.byteSet(addr);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err ++;
+				Msg.err ++;
 				break;
 			}
 		case 2: // 发数据
 			for(uint32_t i = 0; i < bytes_per_page; i++)
 			{
-				byteSet(data);
-				if(ackGet() == nack)
+				Iic.byteSet(data);
+				if(Iic.ackGet() == Iic.nack)
 				{
-					err ++;
+					Msg.err ++;
 					break;
 				}
 			}
 		default:
 			break;
 	}
-	STOP;
+	Iic.stop();
 	WAIT_DELAY;
-	return err;
+	return Msg.err;
 }
 
 
 /* 连读开始
    输入：硬件地址，起始寄存地址
    配合readSequential和readSequentialStop使用 */
-uint8_t CFt34c04::readSequentialStart(uint8_t device_addr, addressType start_addr)
+uint8_t CFt34cxx_Base::readSequentialStart(uint8_t device_addr, addressType start_addr)
 {
-	err = 0;
+	Msg.err = 0;
 	device_address_byte.rw = wr;
 	device_address_byte.device_addr = device_addr;
 	device_address_byte.device_type = device_type_rw;
@@ -327,63 +274,63 @@ uint8_t CFt34c04::readSequentialStart(uint8_t device_addr, addressType start_add
 	switch(0)
 	{
 		case 0:
-			START;
-			byteSet(device_address_byte.byte);
-			if(ackGet() == nack)
+			Iic.start();
+			Iic.byteSet(device_address_byte.byte);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 2:// 发低位
-			byteSet(start_addr);
-			if(ackGet() == nack)
+			Iic.byteSet(start_addr);
+			if(Iic.ackGet() == Iic.nack)
 			{
-				err++;
+				Msg.err++;
 				break;
 			}
 		case 3:
-			START;
+			Iic.start();
 			device_address_byte.rw = rd;
 
-			byteSet(device_address_byte.byte);
+			Iic.byteSet(device_address_byte.byte);
 		default:
 			break;
 	}
-	if(err != 0)
+	if(Msg.err != 0)
 	{
-		STOP;
+		Iic.stop();
 	}
-	return err;
+	return Msg.err;
 }
 
 /* 连读
    连读开始后，每调用一次本函数即可获取一个数据
    配合readSequentialStart和readSequentialStop使用 */
-dataType CFt34c04::readSequential(void)
+dataType CFt34cxx_Base::readSequential(void)
 {
-	ackSet(ack);
-	read_data = byteGet();
-	return read_data;
+	Iic.ackSet(Iic.ack);
+	Msg.readData = Iic.byteGet();
+	return Msg.readData;
 }
 
 /* 连读结束
    结束连续读
    配合readSequentialStart和readSequential使用 */
-void CFt34c04::readSequentialStop(void)
+void CFt34cxx_Base::readSequentialStop(void)
 {
-	ackSet(nack);
-	STOP;
+	Iic.ackSet(Iic.nack);
+	Iic.stop();
 }
 
 /* 软件复位 */
-void CFt34c04::softReset(uint8_t device_addr)
+void CFt34cxx_Base::softReset(uint8_t device_addr)
 {
-	START;
+	Iic.start();
 	// 发18个1
-	byteSet(0xFF);
-	byteSet(0xFF);
-	bitsSet(0xFF, 2);
-	START;
-	STOP;
+	Iic.byteSet(0xFF);
+	Iic.byteSet(0xFF);
+	Iic.bitsSet(0xFF, 2);
+	Iic.start();
+	Iic.stop();
 }
 

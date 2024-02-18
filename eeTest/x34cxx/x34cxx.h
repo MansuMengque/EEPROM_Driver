@@ -3,8 +3,8 @@
 #include	"stm32f10x.h"
 #include	"stm32f10x_gpio.h"
 #include	"stdint.h"
+#include	"iic_eeprom_base.h"
 #include	"timeout_delay.h"
-#include	"iic_software.h"
 
 /*
 			X34CXX
@@ -61,9 +61,25 @@ typedef union
 //#define		RSWP_SET_Quadrant3	(dataType)0x60
 //#define		RSWP_CLEAR					(dataType)0x66
 
-class CFt34c04 : public CIic_Software
+
+class CFt34cxx_Base : public CIic_Eeprom_Base
 {
 	public:
+		CFt34cxx_Base();
+		CFt34cxx_Base(GPIO_TypeDef 			*pPortScl,		uint16_t pinScl,
+									GPIO_TypeDef 			*pPortSda,		uint16_t pinSda,
+									GPIO_InitTypeDef	*pSclInitDef,
+									GPIO_InitTypeDef	*pSdaInitDef,
+									uint8_t 					id)
+	{
+		Iic.CIic_Port_Init(pPortScl,		pinScl,
+											 pPortSda,		pinSda,
+											 pSclInitDef,
+											 pSdaInitDef,
+											 id);
+	}
+	
+		public:
 		/* ª˘¥°≈‰÷√ */
 		uint32_t bytes_per_page;
 		uint32_t bytes_per_half_memory;
@@ -83,32 +99,10 @@ class CFt34c04 : public CIic_Software
 		// ∂¡»°
 		dataType page_get_first;
 		dataType page_get_second;
-
-		void paraInitial(void);
 	
 	public:
 		Function34c_Union device_address_byte;
-		void testErrSignReset(void)
-		{
-			test_err_sign = 0;
-		}
-		void testErrSignSet()
-		{
-			test_err_sign = 1;
-		}
-		uint8_t testErrSignGet()
-		{
-			return test_err_sign;
-		}
 	
-	public:
-		CFt34c04();
-		CFt34c04(GPIO_TypeDef 		*pPortScl,	uint16_t pinScl,
-						GPIO_TypeDef 			*pPortSda,	uint16_t pinSda,
-						GPIO_InitTypeDef	*pSclInitDef,
-						GPIO_InitTypeDef	*pSdaInitDef,
-						uint8_t 					id);
-		
 		addressType pageAddrAutoSet(addressType addr);
 		addressType pageStartAddr(uint8_t page);
 		uint8_t pageAddrSet(dataType cmd);
@@ -122,6 +116,40 @@ class CFt34c04 : public CIic_Software
 		dataType readSequential(void);
 		void readSequentialStop(void);
 		void softReset(uint8_t device_addr);
+
+};
+
+class CFt34c04 : public CFt34cxx_Base
+{
+		public:
+		CFt34c04();
+		CFt34c04(GPIO_TypeDef 		*pPortScl,	uint16_t pinScl,
+						GPIO_TypeDef 			*pPortSda,	uint16_t pinSda,
+						GPIO_InitTypeDef	*pSclInitDef,
+						GPIO_InitTypeDef	*pSdaInitDef,
+						uint8_t 					id);
+		
+	protected:
+		void paraInitial(void)
+		{
+			Msg.err = 0;
+			Msg.readData = 0;
+			
+			// ª˘¥°≈‰÷√
+			bytes_per_page = 16;
+			bytes_per_half_memory = 256;
+			page_in_memory = 32;
+			page_in_half_memory = 16;
+			
+			// «–“≥…Ë÷√
+			page_set_first = 0x6c;
+			page_set_second = 0x6e;
+			page_get = 0x6d;
+			
+			// ∂¡»°
+			dataType page_get_first	= 0;
+			dataType page_get_second = 1;
+		}
 };
 
 #ifdef __cplusplus

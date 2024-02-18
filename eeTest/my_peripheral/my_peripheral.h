@@ -6,8 +6,8 @@
  extern "C" {
 #endif
 
-#define		LED_ON		Bit_RESET
-#define		LED_OFF		Bit_SET
+#define		LED_ON		Bit_SET
+#define		LED_OFF		Bit_RESET
 
 class Led
 {
@@ -31,6 +31,7 @@ class Led
 		Led(GPIO_TypeDef 		*pPortLed,	uint16_t pinLed,
 				 GPIO_InitTypeDef *pLedInitDef,
 				 uint8_t 					id);
+		
 		void ledSetValue(BitAction value)
 		{
 			GPIO_WriteBit(pGpioLed,GpioPinLed,value);
@@ -62,6 +63,7 @@ class Button
 		Button(GPIO_TypeDef 		*pPortButton,	uint16_t pinButton,
 					 GPIO_InitTypeDef *pButtonInitDef,
 					 uint8_t 					id);
+	
 		uint8_t buttonGetValue(void)
 		{
 			return GPIO_ReadInputDataBit(pGpioButton, GpioPinButton);

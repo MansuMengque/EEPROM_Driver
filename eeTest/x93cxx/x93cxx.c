@@ -15,23 +15,23 @@
 
 uint8_t CX93cxx_Base::RequestWaiting(void)
 {	// 用来产生或等待回应，调用Timer产生相应超时
-	uint8_t err = 2;
+	Msg.err = 2;
 	u32 temp;
 	DELAY;
 	// 在x93cxx.c中修改
 	#if(WAIT_AFTER_CS_FALL == 1)
-	CS_LOW;
+	Spi.csSetValue(Bit_RESET);
 	DELAY;
-	CS_HIGH;
+	Spi.csSetValue(Bit_RESET);
 	#endif
 	
 	waitStart(2); // 等待时间为ms
 	do
 	{
 		temp=SysTick->CTRL;
-		if(MISO == 0)
+		if(Spi.misoGetValue() == 0)
 		{
-			err = 1;
+			Msg.err = 1;
 			break;
 		}
 	}while((temp&0x01)&&!(temp&(1<<16)));          // 等待时间到达
@@ -40,39 +40,39 @@ uint8_t CX93cxx_Base::RequestWaiting(void)
 	do
 	{
 		temp=SysTick->CTRL;
-		if(MISO == 1 && err == 1)
+		if(Spi.misoGetValue() == 1 && Msg.err == 1)
 		{
-			err = 0;
+			Msg.err = 0;
 			break;
 		}
 	}while((temp&0x01)&&!(temp&(1<<16)));          // 等待时间到达
 	timeOutRest();
 	
-	if(err > 0)
+	if(Msg.err > 0)
 	{
 		printf("等超时\t");
 	}
 	
-	return err;
+	return Msg.err;
 }
 
 void CX93cxx_Base::start(void)
 { 	// 拉高CS产生开始信号
-	START;
+	Spi.csSetValue(Bit_RESET);
 	// 操作SCL和MOSI发送一位开始位
-	SCL_LOW;
-	MOSI_HIGH;
+	Spi.sclSetValue(Bit_RESET);
+	Spi.mosiSetValue(Bit_SET);
 	DELAY;
-	SCL_HIGH;
+	Spi.sclSetValue(Bit_SET);
 	DELAY;
-	SCL_LOW;
+	Spi.sclSetValue(Bit_RESET);
 	DELAY;
 }
 
 void CX93cxx_Base::stop(void)
 { // 拉低CS产生结束信号
 	DELAY;
-	CS_LOW;
+	Spi.csSetValue(Bit_RESET);
 	DELAY;
 }
 
@@ -82,9 +82,9 @@ dataType CX93cxx_Base::cmdREAD(addressType addr, uint8_t wordsLength)
 	start();
 	opSend(op_read);
 	addressSend(addr);
-	read_data = dataGet();
+	Msg.readData = dataGet();
 	stop();
-	return read_data;
+	return Msg.readData;
 }
 
 void CX93cxx_Base::readDataStart(addressType addr, uint8_t wordsLength)
@@ -115,104 +115,104 @@ void CX93cxx_Base::cmdEWDS(uint8_t wordsLength)
 
 uint8_t CX93cxx_Base::cmdERASE(addressType addr, uint8_t wordsLength)
 { // 发指令，发地址，返回芯片响应状态
-	uint8_t err = 0;
+	Msg.err = 0;
 	wordsLengthSet(wordsLength);
 	start();
 	opSend(op_erase);
 	addressSend(addr);
-	err = RequestWaiting();
-	STOP;
-	if(err > 0)
+	Msg.err = RequestWaiting();
+	stop();
+	if(Msg.err > 0)
 	{
 		printf("擦超时\t");
 	}
-	return err;
+	return Msg.err;
 }
 
 uint8_t CX93cxx_Base::cmdWRITE(addressType addr, dataType data, uint8_t wordsLength)
 { // 发指令，发地址，发数据
-	uint8_t err = 0;
+	Msg.err = 0;
 	wordsLengthSet(wordsLength);
 	start();
 	opSend(op_write);
 	addressSend(addr);
 	dataSend(data);
-	err = RequestWaiting();
+	Msg.err = RequestWaiting();
 	stop();
-	if(err > 0)
+	if(Msg.err > 0)
 	{
 		printf("写超时\t");
 	}
-	return err;
+	return Msg.err;
 }
 
 uint8_t CX93cxx_Base::cmdERAL(uint8_t wordsLength)
 { // 发指令，发地址
-	uint8_t err = 0;
+	Msg.err = 0;
 	wordsLengthSet(wordsLength);
 	start();
 	opSend(op_eral);
 	addressSend(address_eral);
-	err = RequestWaiting();
+	Msg.err = RequestWaiting();
 	stop();
-	if(err > 0)
+	if(Msg.err > 0)
 	{
 		printf("擦超时\t");
 	}
-	return err;
+	return Msg.err;
 }
 
 uint8_t CX93cxx_Base::cmdWRAL(dataType data, uint8_t wordsLength)
 {
-	uint8_t err = 0;
+	Msg.err = 0;
 	wordsLengthSet(wordsLength);
 	start();
 	opSend(op_wral);
 	addressSend(address_wral);
 	dataSend(data);
-	err = RequestWaiting();
+	Msg.err = RequestWaiting();
 	stop();
-	if(err > 0)
+	if(Msg.err > 0)
 	{
 		printf("写超时\t");
 	}
-	return err;
+	return Msg.err;
 }
 
 uint8_t CX93cxx_Base::writeDataAll(dataType data, uint8_t wordsLength)
 { // 全片低压写
-	uint8_t err = 0;
+	Msg.err = 0;
 	for(addressType i = 0; i < address_numbers_current; i ++)
 	{
 		if(cmdWRITE(i, data, wordsLength))
 		{
-			err = 1;
+			Msg.err = 1;
 			break;
 		}
 	}
-	if(err > 0)
+	if(Msg.err > 0)
 	{
 		printf("写超时\t");
 	}
-	return err;
+	return Msg.err;
 }
 
 uint8_t CX93cxx_Base::eraseDataAll(uint8_t wordsLength)
 { // 全片低压擦
-	uint8_t err = 0;
+	Msg.err = 0;
 	for(addressType i = 0; i < address_numbers_current; i ++)
 	{
 		if(cmdERASE(i, wordsLength))
 		{
-			err = 1;
+			Msg.err = 1;
 			break;
 		}
 	}
-	if(err > 0)
+	if(Msg.err > 0)
 	{
 		printf("擦超时\t");
 	}
-	return err;
+	return Msg.err;
 }
 
 
