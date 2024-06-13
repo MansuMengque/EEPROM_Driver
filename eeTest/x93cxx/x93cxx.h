@@ -16,7 +16,7 @@
 */
 
 // 是否在CS下降并上升后DO输出busy信号
-#define		WAIT_AFTER_CS_FALL	0
+#define		WAIT_AFTER_CS_FALL	1
 #define		ORG_HIGH						orgSetValue(Bit_SET)
 #define		ORG_LOW							orgSetValue(Bit_RESET)
 

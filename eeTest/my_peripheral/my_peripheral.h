@@ -6,9 +6,6 @@
  extern "C" {
 #endif
 
-#define		LED_ON		Bit_SET
-#define		LED_OFF		Bit_RESET
-
 class Led
 {
 	protected:
@@ -19,7 +16,7 @@ class Led
 		uint8_t led_id;
 	
 	protected:
-		void ledSetOutput(void)
+		void ledSetOutput()
 		{
 			mpLedStruct->GPIO_Pin = GpioPinLed;
 			mpLedStruct->GPIO_Mode = GPIO_Mode_Out_PP;
@@ -32,10 +29,20 @@ class Led
 				 GPIO_InitTypeDef *pLedInitDef,
 				 uint8_t 					id);
 		
-		void ledSetValue(BitAction value)
+		void ledOn()
 		{
-			GPIO_WriteBit(pGpioLed,GpioPinLed,value);
+			GPIO_WriteBit(pGpioLed,GpioPinLed,Bit_SET);
 		}
+		
+		void ledOff()
+		{
+			GPIO_WriteBit(pGpioLed,GpioPinLed,Bit_RESET);
+		}
+		void ledFlashing()
+		{
+			pGpioLed->ODR ^= GpioPinLed;
+		}
+
 };
 
 #define		BUTTON_DOWN			0

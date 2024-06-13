@@ -65,7 +65,11 @@ typedef union
 class CFt34cxx_Base : public CIic_Eeprom_Base
 {
 	public:
-		CFt34cxx_Base();
+		CFt34cxx_Base()
+		{
+			;
+		}
+		
 		CFt34cxx_Base(GPIO_TypeDef 			*pPortScl,		uint16_t pinScl,
 									GPIO_TypeDef 			*pPortSda,		uint16_t pinSda,
 									GPIO_InitTypeDef	*pSclInitDef,
@@ -77,9 +81,11 @@ class CFt34cxx_Base : public CIic_Eeprom_Base
 											 pSclInitDef,
 											 pSdaInitDef,
 											 id);
+		rd = 1;
+		wr = 0;
+		device_type_rw = 0x0a;
 	}
 	
-		public:
 		/* 基础配置 */
 		uint32_t bytes_per_page;
 		uint32_t bytes_per_half_memory;
@@ -91,6 +97,7 @@ class CFt34cxx_Base : public CIic_Eeprom_Base
 		dataType page_set_second;
 		dataType page_get;
 	
+		protected:
 		/* 功能设置 */
 		uint8_t rd;
 		uint8_t wr;
@@ -116,18 +123,35 @@ class CFt34cxx_Base : public CIic_Eeprom_Base
 		dataType readSequential(void);
 		void readSequentialStop(void);
 		void softReset(uint8_t device_addr);
+	
+		uint32_t getHalfArrayBytes()
+	{
+		return bytes_per_half_memory;
+	}
 
 };
 
 class CFt34c04 : public CFt34cxx_Base
 {
 		public:
-		CFt34c04();
+		CFt34c04()
+		{
+			paraInitial();
+		}
+
 		CFt34c04(GPIO_TypeDef 		*pPortScl,	uint16_t pinScl,
 						GPIO_TypeDef 			*pPortSda,	uint16_t pinSda,
 						GPIO_InitTypeDef	*pSclInitDef,
 						GPIO_InitTypeDef	*pSdaInitDef,
-						uint8_t 					id);
+						uint8_t 					id)
+		:CFt34cxx_Base(pPortScl,	pinScl,
+									pPortSda,		pinSda,
+									pSclInitDef,
+									pSdaInitDef,
+									id)
+		{
+			paraInitial();
+		}
 		
 	protected:
 		void paraInitial(void)

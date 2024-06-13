@@ -1,6 +1,5 @@
 #ifndef		__IIC_EEPROM_BASE_H__
 #define		__IIC_EEPROM_BASE_H__
-#include	"stdint.h"
 #include	"eeprom_base.h"
 #include	"iic_software.h"
 

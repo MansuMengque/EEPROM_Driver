@@ -47,25 +47,25 @@ void CSpi_Software::spiIoInitial(GPIO_TypeDef *pPortScl,	uint16_t pinScl,
 	pGpioPortMISO = pPortMiso;
 	GpioPinMISO = pinMiso;
 	
-	mpIoStruct->GPIO_Pin = GpioPinSCL;
-	mpIoStruct->GPIO_Mode = GPIO_Mode_Out_PP;
-	mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
-	GPIO_Init(pGpioPortSCL, mpIoStruct);
+	mpIoStruct.GPIO_Pin = GpioPinSCL;
+	mpIoStruct.GPIO_Mode = GPIO_Mode_Out_PP;
+	mpIoStruct.GPIO_Speed = GPIO_Speed_10MHz;
+	GPIO_Init(pGpioPortSCL, &mpIoStruct);
 	
-	mpIoStruct->GPIO_Pin = GpioPinCS;
-	mpIoStruct->GPIO_Mode = GPIO_Mode_Out_PP;
-	mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
-	GPIO_Init(pGpioPortCS, mpIoStruct);
+	mpIoStruct.GPIO_Pin = GpioPinCS;
+	mpIoStruct.GPIO_Mode = GPIO_Mode_Out_PP;
+	mpIoStruct.GPIO_Speed = GPIO_Speed_10MHz;
+	GPIO_Init(pGpioPortCS, &mpIoStruct);
 	
-	mpIoStruct->GPIO_Pin = GpioPinMOSI;
-	mpIoStruct->GPIO_Mode = GPIO_Mode_Out_PP;
-	mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
-	GPIO_Init(pGpioPortMOSI, mpIoStruct);
+	mpIoStruct.GPIO_Pin = GpioPinMOSI;
+	mpIoStruct.GPIO_Mode = GPIO_Mode_Out_PP;
+	mpIoStruct.GPIO_Speed = GPIO_Speed_10MHz;
+	GPIO_Init(pGpioPortMOSI, &mpIoStruct);
 	
-	mpIoStruct->GPIO_Pin = GpioPinMISO;
-	mpIoStruct->GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	mpIoStruct->GPIO_Speed = GPIO_Speed_10MHz;
-	GPIO_Init(pGpioPortMISO, mpIoStruct);
+	mpIoStruct.GPIO_Pin = GpioPinMISO;
+	mpIoStruct.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	mpIoStruct.GPIO_Speed = GPIO_Speed_10MHz;
+	GPIO_Init(pGpioPortMISO, &mpIoStruct);
 	
 	csSetValue(Bit_SET);
 }
@@ -88,7 +88,7 @@ dataType CSpi_Software::dataTransform(addressType data, uint8_t dataLength)
 			mosiSetValue(Bit_RESET);
     }
 		SHORT_DELAY;
-		csSetValue(Bit_RESET);
+		sclSetValue(Bit_SET);
 		DELAY;
 		if(misoGetValue())
     {

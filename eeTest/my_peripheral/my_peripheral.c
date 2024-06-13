@@ -26,7 +26,7 @@ Led::Led(GPIO_TypeDef 		*pPortLed,	uint16_t pinLed,
 	else
 		;
 
-	ledSetValue(LED_OFF);
+	ledOff();
 	ledSetOutput();
 }
 

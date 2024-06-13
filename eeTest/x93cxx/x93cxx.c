@@ -58,7 +58,7 @@ uint8_t CX93cxx_Base::RequestWaiting(void)
 
 void CX93cxx_Base::start(void)
 { 	// 拉高CS产生开始信号
-	Spi.csSetValue(Bit_RESET);
+	Spi.csSetValue(Bit_SET);
 	// 操作SCL和MOSI发送一位开始位
 	Spi.sclSetValue(Bit_RESET);
 	Spi.mosiSetValue(Bit_SET);

@@ -35,7 +35,7 @@ typedef	uint32_t	addressType;
 													GPIO_TypeDef	*pPortMiso,	uint16_t pinMiso);
 				
 			// 初始化方向的结构
-			GPIO_InitTypeDef* mpIoStruct;
+			GPIO_InitTypeDef mpIoStruct;
 		 
 			void sclSetValue(BitAction value)
 			{
